@@ -1,6 +1,7 @@
 import cv2
 import os
 import PIL
+import shutil
 from PIL import Image, ImageOps, ImageFile
 import numpy as np
 from tqdm import tqdm
@@ -43,6 +44,67 @@ def create_resized_data_bank(dataset_dir, resize_shape=(256, 256), databank_name
                 image.save(os.path.join(images_folder, file))
             if "labels" in folder:
                 image.save(os.path.join(labels_folder, file))
+
+
+def split_train_test_validation(dataset_dir, version=AV_SS_V, train=0.8, test=0.1, valid=0.1):
+
+    if (train+test+valid != 1.0):
+        train = 0.8
+        test = 0.1
+        valid = 0.1
+
+    # Make new dirs
+    new_folders = (dataset_dir + '/train/' + version,
+                   dataset_dir + '/test/'+ version,
+                   dataset_dir +  '/validation/'+ version,
+                   dataset_dir + '/train_label/'+ version,
+                   dataset_dir + '/test_label/' + version,
+                   dataset_dir +  '/validation_label/' + version)
+
+    
+    for folder in new_folders:
+        if os.path.isdir(folder):
+            # remove folder if exists
+            shutil.rmtree(folder, ignore_errors=True)
+        try:
+            os.makedirs(folder)
+        except OSError:
+            pass
+
+
+    images_folder = dataset_dir + "/images"
+    labels_folder = dataset_dir + "/labels"
+
+    # Fill folders
+    files = sorted(os.listdir(images_folder))
+    train_files = files[ : int(len(files)*train)]
+    test_files = files[int(len(files)*train):]
+
+    x = test/(1.0-train)
+    valid_files = test_files[int(len(test_files)*x):]
+    test_files = test_files[:int(len(test_files)*x)]
+
+    file_list_list = [train_files, test_files, valid_files]           
+
+    for file_list, folder in zip(file_list_list, new_folders[:3]):
+        for file in tqdm(file_list, position=0, leave=True):
+            image = Image.open(os.path.join(images_folder, file))
+            image.save(os.path.join(folder, file))
+
+    # Fill folders
+    labels = sorted(os.listdir(labels_folder))
+    train_labels = labels[ :int(len(labels)*train)]
+    test_labels = labels[int(len(labels)*train):]
+
+    valid_labels = test_labels[int(len(test_labels)*x):]
+    test_labels = test_labels[:int(len(test_labels)*x)]
+
+    file_label_list = [train_labels, test_labels, valid_labels]      
+
+    for label_list, folder in zip(file_label_list, new_folders[3:]):
+        for label in tqdm(label_list, position=0, leave=True):
+            image = Image.open(os.path.join(labels_folder, label))
+            image.save(os.path.join(folder, label))
 
 
 def print_image_stats(image_dir, label=False):
